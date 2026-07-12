@@ -1,7 +1,7 @@
-// ===== 멤버 이름 =====
+// ==========================================
+// 1. 기본 데이터 설정 (멤버 및 커플링 명칭)
+// ==========================================
 const members = ["마틴", "제임스", "주훈", "성현", "건호"];
-
-// ===== 셀 내용 =====
 const labels = [
     ["", "젯틴", "훈틴", "엄틴", "껀틴"],
     ["틴젯", "", "눟젯", "셩젯", "낭젯"],
@@ -10,159 +10,266 @@ const labels = [
     ["틴껀", "젬껀", "쮸건", "엄껀", ""]
 ];
 
+// ==========================================
+// 2. 범주(라벨 및 색상) 상태 관리
+// ==========================================
+const defaultCategories = [
+    { id: "otp", name: "OTP", color: "#ffdee2" },
+    { id: "good", name: "좋음", color: "#fcead2" },
+    { id: "normal", name: "보통", color: "#fefcd0" },
+    { id: "pass", name: "스루", color: "#e5fcdb" },
+    { id: "mine", name: "지뢰", color: "#dbf4fc" }
+];
+
+// 로컬스토리지에서 기존 커스텀 설정을 불러오고, 없으면 기본값 사용
+let categories = JSON.parse(localStorage.getItem("cortis_categories")) || defaultCategories;
+
+// DOM 요소 가져오기
 const table = document.getElementById("rpsTable");
 const picker = document.getElementById("picker");
+let configContainer = document.querySelector(".legend");
 
 let selectedCell = null;
 
-// ===== 표 생성 =====
-function createTable() {
+// ==========================================
+// 3. 상단 설정 바 및 픽커 팝업 생성
+// ==========================================
+function initCategories() {
+    if (!configContainer) {
+        configContainer = document.createElement("div");
+        configContainer.className = "legend";
+        table.parentNode.insertBefore(configContainer, table);
+    }
+    
+    configContainer.innerHTML = "";
+    picker.innerHTML = ""; // 기존 하드코딩된 버튼들 초기화
 
-    let html = "<tr><th></th>";
+    categories.forEach((category) => {
+        // [A] 상단 CSS 스타일 맞춤 및 삭제 버튼 추가
+        const item = document.createElement("div");
+        item.className = "legend-item";
+        item.style.cssText = "position: relative; display: flex; align-items: center; gap: 6px; padding-right: 12px;";
 
-    members.forEach(name => {
-        html += `<th>${name}</th>`;
+        item.innerHTML = `
+            <div style="position: relative; width: 20px; height: 20px; border-radius: 50%; overflow: hidden; border: 1.5px solid rgba(0,0,0,.08); flex-shrink: 0;">
+                <input type="color" value="${category.color}" data-id="${category.id}" class="category-color-input" 
+                    style="position: absolute; top: -5px; left: -5px; width: 30px; height: 30px; border: none; padding: 0; cursor: pointer; background: transparent;">
+            </div>
+            <input type="text" value="${category.name}" data-id="${category.id}" class="category-name-input" 
+                style="width: 50px; border: none; border-bottom: 1px solid #ccc; text-align: center; font-size: 16px; font-weight: 500; font-family: inherit; outline: none; background: transparent; color: #333;">
+            <button class="category-delete-btn" data-id="${category.id}" 
+                style="border: none; background: transparent; color: #aaa; cursor: pointer; font-size: 11px; padding: 0 2px; font-weight: bold; margin-left: -2px; transition: color 0.15s;">✕</button>
+        `;
+        configContainer.appendChild(item);
+
+        // [B] 셀 클릭 시 뜰 팝업창(picker) 내부의 버튼 동적 생성
+        const pickBtn = document.createElement("button");
+        pickBtn.className = `pick ${category.id}`;
+        pickBtn.dataset.colorId = category.id;
+        pickBtn.style.backgroundColor = category.color;
+        picker.appendChild(pickBtn);
     });
 
+    // [C] 지우기(X) 버튼 추가
+    const clearBtn = document.createElement("button");
+    clearBtn.className = "pick clear";
+    clearBtn.dataset.colorId = "";
+    picker.appendChild(clearBtn);
+
+    // 인풋 및 삭제 버튼 이벤트 바인딩
+    bindCategoryEvents();
+    bindPickerEvents();
+}
+
+// ==========================================
+// 4. 범례 설정 제어 및 실시간 동기화 이벤트
+// ==========================================
+function bindCategoryEvents() {
+    // 색상 변경 시
+    document.querySelectorAll(".category-color-input").forEach(input => {
+        input.addEventListener("input", (e) => {
+            const id = e.target.dataset.id;
+            const targetCat = categories.find(c => c.id === id);
+            if (targetCat) {
+                targetCat.color = e.target.value;
+                saveCategories();
+                updateUI();
+            }
+        });
+    });
+
+    // 라벨 텍스트 변경 시
+    document.querySelectorAll(".category-name-input").forEach(input => {
+        input.addEventListener("input", (e) => {
+            const id = e.target.dataset.id;
+            const targetCat = categories.find(c => c.id === id);
+            if (targetCat) {
+                targetCat.name = e.target.value;
+                saveCategories();
+                updateUI();
+            }
+        });
+    });
+
+    // [추가] 삭제 버튼 클릭 시 범례 제거
+    document.querySelectorAll(".category-delete-btn").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+            const id = e.target.dataset.id;
+            
+            // 최소 1개는 남겨두도록 유도 (전부 지워지면 표 에러 방지)
+            if (categories.length <= 1) {
+                alert("최소 1개 이상의 범례는 유지되어야 합니다.");
+                return;
+            }
+
+            // 선택한 범례를 배열에서 제외
+            categories = categories.filter(c => c.id !== id);
+            saveCategories();
+
+            // 지워진 범례의 색상이 칠해져 있던 표 칸들은 초기화 처리
+            document.querySelectorAll(".cell").forEach(cell => {
+                const savedId = localStorage.getItem(cell.dataset.id);
+                if (savedId === id) {
+                    cell.style.backgroundColor = "";
+                    localStorage.removeItem(cell.dataset.id);
+                }
+            });
+
+            // UI 전체 재구성
+            initCategories();
+            updateUI();
+        });
+
+        // 삭제 버튼 호버 효과 추가
+        btn.addEventListener("mouseenter", () => btn.style.color = "#ff4d4d");
+        btn.addEventListener("mouseleave", () => btn.style.color = "#aaa");
+    });
+}
+
+// 범주 데이터 로컬스토리지 저장
+function saveCategories() {
+    localStorage.setItem("cortis_categories", JSON.stringify(categories));
+}
+
+// 색상/글자 실시간 UI 업데이트 함수
+function updateUI() {
+    // 팝업창 버튼 배경색 실시간 동기화
+    document.querySelectorAll("#picker .pick").forEach(btn => {
+        const id = btn.dataset.colorId;
+        if (!id) return;
+        const cat = categories.find(c => c.id === id);
+        if (cat) {
+            btn.style.backgroundColor = cat.color;
+        }
+    });
+
+    // 표 내부 셀 색상 실시간 동기화
+    document.querySelectorAll(".cell").forEach(cell => {
+        const colorId = localStorage.getItem(cell.dataset.id);
+        if (colorId) {
+            const cat = categories.find(c => c.id === colorId);
+            cell.style.backgroundColor = cat ? cat.color : "";
+        } else {
+            cell.style.backgroundColor = "";
+        }
+    });
+}
+
+// ==========================================
+// 5. 메인 표(Table) 생성 및 셀 선택
+// ==========================================
+function createTable() {
+    let html = "<tr><th></th>";
+    members.forEach(name => { html += `<th>${name}</th>`; });
     html += "</tr>";
 
     members.forEach((rowName, row) => {
-
         html += `<tr><th>${rowName}</th>`;
-
         members.forEach((_, col) => {
-
             if (row === col) {
-
                 html += `<td class="disabled"></td>`;
-
             } else {
-
                 html += `
-                <td
-                    data-id="${row}-${col}"
-                    class="cell">
+                <td data-id="${row}-${col}" class="cell">
                     ${labels[row][col]}
                 </td>`;
             }
-
         });
-
         html += "</tr>";
-
     });
 
     table.innerHTML = html;
-
-    loadColors();
-
-    bindEvents();
-
+    loadColors();     // 저장된 셀 색상 불러오기
+    bindCellEvents(); // 셀 클릭 이벤트 연결
 }
 
-// ===== 셀 클릭 =====
-function bindEvents() {
-
+// 셀 클릭 시 팝업 띄우기
+function bindCellEvents() {
     document.querySelectorAll(".cell").forEach(cell => {
-
         cell.addEventListener("click", e => {
-
             selectedCell = cell;
-
             picker.style.display = "flex";
-
             picker.style.left = `${e.pageX}px`;
             picker.style.top = `${e.pageY}px`;
-
         });
-
     });
-
 }
 
-// ===== 색 선택 =====
-document.querySelectorAll(".pick").forEach(btn => {
+// ==========================================
+// 6. 팝업창(Picker)에서 색상 선택 시 적용
+// ==========================================
+function bindPickerEvents() {
+    document.querySelectorAll("#picker .pick").forEach(btn => {
+        btn.addEventListener("click", () => {
+            if (!selectedCell) return;
 
-    btn.addEventListener("click", () => {
+            const colorId = btn.dataset.colorId;
 
-        if (!selectedCell) return;
+            if (colorId !== "") {
+                const cat = categories.find(c => c.id === colorId);
+                selectedCell.style.backgroundColor = cat ? cat.color : "";
+                localStorage.setItem(selectedCell.dataset.id, colorId);
+            } else {
+                // '지우기' 선택 시
+                selectedCell.style.backgroundColor = "";
+                localStorage.removeItem(selectedCell.dataset.id);
+            }
 
-        // 기존 색 제거
-        selectedCell.classList.remove(
-            "otp",
-            "good",
-            "normal",
-            "pass",
-            "mine"
-        );
-
-        const color = btn.dataset.color;
-
-        if (color !== "") {
-
-            selectedCell.classList.add(color);
-
-            localStorage.setItem(
-                selectedCell.dataset.id,
-                color
-            );
-
-        } else {
-
-            localStorage.removeItem(
-                selectedCell.dataset.id
-            );
-
-        }
-
-        picker.style.display = "none";
-
+            picker.style.display = "none";
+        });
     });
+}
 
-});
-
-// ===== 저장 불러오기 =====
+// 저장된 표의 셀 색상 불러오기
 function loadColors() {
-
     document.querySelectorAll(".cell").forEach(cell => {
-
-        const color = localStorage.getItem(
-            cell.dataset.id
-        );
-
-        if (color) {
-
-            cell.classList.add(color);
-
+        const colorId = localStorage.getItem(cell.dataset.id);
+        if (colorId) {
+            const cat = categories.find(c => c.id === colorId);
+            if (cat) cell.style.backgroundColor = cat.color;
         }
-
     });
-
 }
 
-// ===== 바깥 클릭 시 닫기 =====
+// ==========================================
+// 7. 기타 유틸리티 이벤트 (바깥 클릭, ESC 키 종료)
+// ==========================================
 window.addEventListener("click", e => {
-
     if (
         !picker.contains(e.target) &&
-        !e.target.classList.contains("cell")
+        !e.target.classList.contains("cell") &&
+        !e.target.closest(".legend")
     ) {
-
         picker.style.display = "none";
-
     }
-
 });
 
-// ===== ESC =====
 window.addEventListener("keydown", e => {
-
-    if (e.key === "Escape") {
-
-        picker.style.display = "none";
-
-    }
-
+    if (e.key === "Escape") picker.style.display = "none";
 });
 
+// ==========================================
+// 8. 초기 실행 코드
+// ==========================================
 createTable();
+initCategories();
