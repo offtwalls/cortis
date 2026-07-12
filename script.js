@@ -21,10 +21,8 @@ const defaultCategories = [
     { id: "mine", name: "지뢰", color: "#dbf4fc" }
 ];
 
-// 로컬스토리지에서 기존 커스텀 설정을 불러오고, 없으면 기본값 사용
 let categories = JSON.parse(localStorage.getItem("cortis_categories")) || defaultCategories;
 
-// DOM 요소 가져오기
 const table = document.getElementById("rpsTable");
 const picker = document.getElementById("picker");
 let configContainer = document.querySelector(".legend");
@@ -42,27 +40,27 @@ function initCategories() {
     }
     
     configContainer.innerHTML = "";
-    picker.innerHTML = ""; // 기존 하드코딩된 버튼들 초기화
+    picker.innerHTML = ""; 
 
     categories.forEach((category) => {
-        // [A] 상단 CSS 스타일 맞춤 및 삭제 버튼 추가
+        // [A] 상단 인풋 및 삭제 버튼 생성
         const item = document.createElement("div");
         item.className = "legend-item";
         item.style.cssText = "position: relative; display: flex; align-items: center; gap: 6px; padding-right: 12px;";
 
         item.innerHTML = `
-            <div style="position: relative; width: 20px; height: 20px; border-radius: 50%; overflow: hidden; border: 1.5px solid rgba(0,0,0,.08); flex-shrink: 0;">
+            <div style="position: relative; width: 20px; height: 20px; border-radius: 50%; overflow: hidden; border: 1px solid rgba(0,0,0,.1); flex-shrink: 0;">
                 <input type="color" value="${category.color}" data-id="${category.id}" class="category-color-input" 
                     style="position: absolute; top: -5px; left: -5px; width: 30px; height: 30px; border: none; padding: 0; cursor: pointer; background: transparent;">
             </div>
             <input type="text" value="${category.name}" data-id="${category.id}" class="category-name-input" 
-                style="width: 50px; border: none; border-bottom: 1px solid #ccc; text-align: center; font-size: 16px; font-weight: 500; font-family: inherit; outline: none; background: transparent; color: #333;">
+                style="width: 50px; border: none; border-bottom: 1px solid #ccc; text-align: center; font-size: 15px; font-weight: 500; font-family: inherit; outline: none; background: transparent; color: #333;">
             <button class="category-delete-btn" data-id="${category.id}" 
                 style="border: none; background: transparent; color: #aaa; cursor: pointer; font-size: 11px; padding: 0 2px; font-weight: bold; margin-left: -2px; transition: color 0.15s;">✕</button>
         `;
         configContainer.appendChild(item);
 
-        // [B] 셀 클릭 시 뜰 팝업창(picker) 내부의 버튼 동적 생성
+        // [B] 팝업창(picker) 내 픽 버튼 생성
         const pickBtn = document.createElement("button");
         pickBtn.className = `pick ${category.id}`;
         pickBtn.dataset.colorId = category.id;
@@ -70,13 +68,12 @@ function initCategories() {
         picker.appendChild(pickBtn);
     });
 
-    // [C] 지우기(X) 버튼 추가
+    // [C] 지우기 버튼 생성
     const clearBtn = document.createElement("button");
     clearBtn.className = "pick clear";
     clearBtn.dataset.colorId = "";
     picker.appendChild(clearBtn);
 
-    // 인풋 및 삭제 버튼 이벤트 바인딩
     bindCategoryEvents();
     bindPickerEvents();
 }
@@ -85,7 +82,7 @@ function initCategories() {
 // 4. 범례 설정 제어 및 실시간 동기화 이벤트
 // ==========================================
 function bindCategoryEvents() {
-    // 색상 변경 시
+    // 색상 변경 시 실시간 반영
     document.querySelectorAll(".category-color-input").forEach(input => {
         input.addEventListener("input", (e) => {
             const id = e.target.dataset.id;
@@ -98,7 +95,7 @@ function bindCategoryEvents() {
         });
     });
 
-    // 라벨 텍스트 변경 시
+    // 라벨 텍스트 변경 시 실시간 반영
     document.querySelectorAll(".category-name-input").forEach(input => {
         input.addEventListener("input", (e) => {
             const id = e.target.dataset.id;
@@ -111,22 +108,19 @@ function bindCategoryEvents() {
         });
     });
 
-    // [추가] 삭제 버튼 클릭 시 범례 제거
+    // 범례 삭제 기능
     document.querySelectorAll(".category-delete-btn").forEach(btn => {
         btn.addEventListener("click", (e) => {
             const id = e.target.dataset.id;
-            
-            // 최소 1개는 남겨두도록 유도 (전부 지워지면 표 에러 방지)
             if (categories.length <= 1) {
                 alert("최소 1개 이상의 범례는 유지되어야 합니다.");
                 return;
             }
 
-            // 선택한 범례를 배열에서 제외
             categories = categories.filter(c => c.id !== id);
             saveCategories();
 
-            // 지워진 범례의 색상이 칠해져 있던 표 칸들은 초기화 처리
+            // 지워진 색상이 칠해진 표의 셀 데이터 청소
             document.querySelectorAll(".cell").forEach(cell => {
                 const savedId = localStorage.getItem(cell.dataset.id);
                 if (savedId === id) {
@@ -135,35 +129,27 @@ function bindCategoryEvents() {
                 }
             });
 
-            // UI 전체 재구성
             initCategories();
             updateUI();
         });
 
-        // 삭제 버튼 호버 효과 추가
         btn.addEventListener("mouseenter", () => btn.style.color = "#ff4d4d");
         btn.addEventListener("mouseleave", () => btn.style.color = "#aaa");
     });
 }
 
-// 범주 데이터 로컬스토리지 저장
 function saveCategories() {
     localStorage.setItem("cortis_categories", JSON.stringify(categories));
 }
 
-// 색상/글자 실시간 UI 업데이트 함수
 function updateUI() {
-    // 팝업창 버튼 배경색 실시간 동기화
     document.querySelectorAll("#picker .pick").forEach(btn => {
         const id = btn.dataset.colorId;
         if (!id) return;
         const cat = categories.find(c => c.id === id);
-        if (cat) {
-            btn.style.backgroundColor = cat.color;
-        }
+        if (cat) btn.style.backgroundColor = cat.color;
     });
 
-    // 표 내부 셀 색상 실시간 동기화
     document.querySelectorAll(".cell").forEach(cell => {
         const colorId = localStorage.getItem(cell.dataset.id);
         if (colorId) {
@@ -199,11 +185,10 @@ function createTable() {
     });
 
     table.innerHTML = html;
-    loadColors();     // 저장된 셀 색상 불러오기
-    bindCellEvents(); // 셀 클릭 이벤트 연결
+    loadColors();     
+    bindCellEvents(); 
 }
 
-// 셀 클릭 시 팝업 띄우기
 function bindCellEvents() {
     document.querySelectorAll(".cell").forEach(cell => {
         cell.addEventListener("click", e => {
@@ -215,9 +200,6 @@ function bindCellEvents() {
     });
 }
 
-// ==========================================
-// 6. 팝업창(Picker)에서 색상 선택 시 적용
-// ==========================================
 function bindPickerEvents() {
     document.querySelectorAll("#picker .pick").forEach(btn => {
         btn.addEventListener("click", () => {
@@ -230,7 +212,6 @@ function bindPickerEvents() {
                 selectedCell.style.backgroundColor = cat ? cat.color : "";
                 localStorage.setItem(selectedCell.dataset.id, colorId);
             } else {
-                // '지우기' 선택 시
                 selectedCell.style.backgroundColor = "";
                 localStorage.removeItem(selectedCell.dataset.id);
             }
@@ -240,7 +221,6 @@ function bindPickerEvents() {
     });
 }
 
-// 저장된 표의 셀 색상 불러오기
 function loadColors() {
     document.querySelectorAll(".cell").forEach(cell => {
         const colorId = localStorage.getItem(cell.dataset.id);
@@ -251,15 +231,8 @@ function loadColors() {
     });
 }
 
-// ==========================================
-// 7. 기타 유틸리티 이벤트 (바깥 클릭, ESC 키 종료)
-// ==========================================
 window.addEventListener("click", e => {
-    if (
-        !picker.contains(e.target) &&
-        !e.target.classList.contains("cell") &&
-        !e.target.closest(".legend")
-    ) {
+    if (!picker.contains(e.target) && !e.target.classList.contains("cell") && !e.target.closest(".legend")) {
         picker.style.display = "none";
     }
 });
@@ -268,8 +241,5 @@ window.addEventListener("keydown", e => {
     if (e.key === "Escape") picker.style.display = "none";
 });
 
-// ==========================================
-// 8. 초기 실행 코드
-// ==========================================
 createTable();
 initCategories();
