@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CORTIS RPS 취향표</title>
+
+    <link rel="stylesheet" href="style.css">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>CORTIS RPS 취향표</h1>
+
+    <div class="legend">
+
+        <div class="legend-item">
+            <span class="legend-color otp"></span>
+            OTP
+        </div>
+
+        <div class="legend-item">
+            <span class="legend-color good"></span>
+            좋음
+        </div>
+
+        <div class="legend-item">
+            <span class="legend-color normal"></span>
+            보통
+        </div>
+
+        <div class="legend-item">
+            <span class="legend-color pass"></span>
+            스루
+        </div>
+
+        <div class="legend-item">
+            <span class="legend-color mine"></span>
+            지뢰
+        </div>
+
+    </div>
+
+    <div class="table-wrapper">
+
+        <table id="rpsTable"></table>
+
+    </div>
+
+</div>
+
+
+<!-- 색상 선택 팝업 -->
+
+<div id="picker">
+
+    <button class="pick otp" data-color="otp"></button>
+
+    <button class="pick good" data-color="good"></button>
+
+    <button class="pick normal" data-color="normal"></button>
+
+    <button class="pick pass" data-color="pass"></button>
+
+    <button class="pick mine" data-color="mine"></button>
+
+    <button class="pick clear" data-color=""></button>
+
+</div>
+
+<script src="script.js"></script>
+
+</body>
+</html>
